@@ -1,0 +1,36 @@
+services:
+  holiday_optimizer:
+    network_mode: "host"
+    build: 
+      context: .
+      dockerfile: ${HOME}/sandbox/holiday_optimizer/docker/Dockerfile
+    image: holiday_optimizer:latest
+    volumes:
+      - type: bind
+        source: ${HOME}/sandbox/holiday_optimizer
+        target: /root/holiday_optimizer
+      - type: bind
+        source: /tmp/.X11-unix
+        target: /tmp/.X11-unix
+      - type: bind
+        source: /media
+        target: /media
+      - type: bind
+        target: /dev/input
+        source: /dev/input
+    privileged: true  # 特権モードを有効にする
+    tty: true
+    stdin_open: true
+    restart: always
+    devices:
+      - "/dev/:/dev/"
+      - "/media/:/media/"
+    environment:
+      - DISPLAY=${DISPLAY}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
