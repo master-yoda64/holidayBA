@@ -15,7 +15,6 @@ Eigen::Matrix<double, 2, 4> CameraModelPinholeBal::get_prj_jacobian(
     double x = point(0);
     double y = point(1);
     double z = point(2);
-
     jacobian(0, 0) = -f_ / z;
     jacobian(0, 2) = f_ * x / (z * z);
     jacobian(1, 1) = -f_ / z;
