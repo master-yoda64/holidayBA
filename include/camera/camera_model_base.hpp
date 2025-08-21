@@ -19,10 +19,10 @@ class CameraModelBase
         ~CameraModelBase() = default;
 
         //getter & setter
-        int get_camera_id() const { return camera_id_; }
-        CameraModelName get_camera_model_name() const { return camera_model_name_; }
-        void set_camera_id(int id) { camera_id_ = id; }
-        void set_camera_model_name(CameraModelName name) { camera_model_name_ = name; }
+        virtual int get_camera_id() const = 0;
+        virtual CameraModelName get_camera_model_name() const = 0;
+        virtual void set_camera_model_name(CameraModelName name) = 0;
+        virtual void set_camera_id(int id) = 0;
 
         // functions
         /**
@@ -40,9 +40,9 @@ class CameraModelBase
         // //     return this->normalcoord3d_to_image(points_normalized);
         // // };
         // virtual bool set_intrinsic(std::string data_file_path) = 0; // set parameters for each camera model
-    private:    
+    protected:    
         // parameters
-        int camera_id_;
+        int camera_idx_;
         CameraModelName camera_model_name_ = CameraModelName::NONE;
         //cv::Mat K = cv::Mat::empty(3, 3, CV_32F); // camera matrix
 };

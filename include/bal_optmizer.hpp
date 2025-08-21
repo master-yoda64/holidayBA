@@ -9,6 +9,7 @@
 #include <camera/camera_model_pinhole_bal.hpp>
 
 using Point3D = Eigen::Vector3d;
+
 struct Observation {
   int camera_idx;
   int point_idx;
@@ -19,7 +20,6 @@ struct OptResult {
     Eigen::Matrix3d R;
     Eigen::Vector3d t;
     double residual;
-
 };
 
 class BaOptimizer 
@@ -28,24 +28,64 @@ public:
     BaOptimizer() = default;
     ~BaOptimizer() = default;
 
-    OptResult optimize(
+    std::vector<OptResult> optimize_all_cameras() 
+    {
+        std::vector<OptResult> results;
+        for (int i = 0; i < cameras_.size(); ++i) 
+        {
+            const CameraModelPinholeBal& camera = cameras_[i];
+            std::vector<Observation> observations;
+            for (const auto &obs : observations_) 
+            {
+                if (obs.camera_idx == camera.get_camera_id()) 
+                {
+                    observations.push_back(obs);
+                }
+
+            }
+            if (observations.size() == 0) 
+            {
+                std::cerr << "No observations for camera ID: " << camera.get_camera_id() << std::endl;
+                continue;
+            }
+            std::vector<Point3D> points;
+            for (const auto &obs : observations) 
+            {
+                points.push_back(points_[obs.point_idx]);
+            }
+            if (points.size() == 0) 
+            {
+                std::cerr << "No points for camera ID: " << camera.get_camera_id() << std::endl;
+                continue;
+            }
+            std::cout << "Optimizing camera ID: " << camera.get_camera_id() << std::endl;
+            std::cout << "Number of observations: " << observations.size() << std::endl;
+            std::cout << "Number of points: " << points.size() << std::endl;
+            auto result = optimize_camera(observations, camera, points);
+            results.push_back(result);
+        }
+        return results;
+    }
+
+    OptResult optimize_camera(
         const std::vector<Observation> obs,
         const CameraModelPinholeBal cam,
-        const std::vector<Point3D> points,
-        int max_iter=10,
-        double convergence_threshold=1e-15
-    ) {
+        const std::vector<Point3D> points
+    ) 
+    {
         double residual = 0.0;
         int cam_idx = cam.get_camera_id();
         Eigen::Matrix3d R_ini = cam.rotationMatrix();
         Eigen::Vector3d t_ini = cam.get_translation();
-
-        for (int it = 0; it < max_iter; ++it) {
+        int cnt = 0;
+        for (int it = 0; it < max_iter_; ++it) 
+        {
             Eigen::Matrix<double,6,6> H = Eigen::Matrix<double,6,6>::Zero();
             Eigen::Matrix<double,6,1> b = Eigen::Matrix<double,6,1>::Zero();
 
             auto start_time = std::chrono::high_resolution_clock::now();
-            for (int j = 0; j < obs.size(); j++) {
+            for (int j = 0; j < obs.size(); j++) 
+            {
                 const Observation& ob = obs[j];
                 //if (cam_idx != ob.camera_idx) continue;
 
@@ -59,27 +99,38 @@ public:
                 auto [Hi, bi] = compute_H_b(X, z, z_hat, R_ini, t_ini, Jprj);
                 H += Hi;
                 b += bi;
+                // if (cnt < 30)
+                // {
+                //     std::cout << "Observation: " << cnt++ 
+                //               << ", Camera ID: " << ob.camera_idx 
+                //               << ", Point ID: " << ob.point_idx << std::endl;
+                //     std::cout << "z: " << z.transpose() 
+                //               << ", z_hat: " << z_hat.transpose() 
+                //               << ", Jprj: \n" << Jprj << std::endl;
+                // }
             }
+            
             auto end_time = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> duration = end_time - start_time;
-            std::cout << "Iteration " << it << ": Time taken for computation: " << duration.count() << " seconds" << std::endl;
+            //std::cout << "Iteration " << it << ": Time taken for computation: " << duration.count() << " seconds" << std::endl;
 
-            // （任意）ダンピングを入れると安定
             // double lambda = 1e-6;
             // H_sum.diagonal().array() += lambda;
 
             Eigen::SparseMatrix<double> H_sparse = H.sparseView();
             Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower | Eigen::Upper> cg;
-            cg.setTolerance(1e-4);
+            cg.setTolerance(1e-2);
             cg.compute(H_sparse);
             Eigen::VectorXd delta = cg.solve(b);
-                
+            std::cout << "Iteration " << it << ": Solved linear system, delta: " << delta.transpose() << std::endl;
             Eigen::Matrix<double, 3, 1> delta_t = delta.tail<3>();
             Sophus::SO3<double> delta_R = Sophus::SO3<double>::exp(delta.head<3>());
             R_ini = delta_R.matrix() * R_ini;
             t_ini += delta_t;
             residual = (H * delta - b).squaredNorm();
-            if (residual < convergence_threshold) {
+            std::cout << "Iteration " << it << ": Residual = " << residual << std::endl;
+            if (residual < convergence_threshold_) 
+            {
                 std::cout << "Converged at iteration " << it << " with residual: " << residual << std::endl;
                 break;
             }
@@ -87,31 +138,40 @@ public:
         return OptResult{R_ini, t_ini, residual};
     }
 
-    void load_data(std::string path) {
+    void load_data(std::string path) 
+    {
         std::ifstream ifs(path);
-        if (!ifs) {
+        if (!ifs) 
+        {
             std::cerr << "Failed to open: " << path << "\n";
             return;
         }
         int num_cameras, num_points, num_observations;
         ifs >> num_cameras >> num_points >> num_observations;
-        if (!ifs) {
+        if (!ifs) 
+        {
             std::cerr << "Failed reading header.\n";
             return;
         }
+        std::cout << "Cameras: " << num_cameras 
+                  << ", Points: " << num_points 
+                  << ", Observations: " << num_observations << std::endl;
         observations_.reserve(num_observations);
         cameras_.reserve(num_cameras);
         points_.reserve(num_points);
-        for (int i = 0; i < num_observations; ++i) {
+        for (int i = 0; i < num_observations; ++i) 
+        {
             Observation obs;
             ifs >> obs.camera_idx >> obs.point_idx >> obs.x >> obs.y;
-            if (!ifs) {
+            if (!ifs) 
+            {
             std::cerr << "Failed reading observation #" << i << "\n";
             return;
             }
             observations_.push_back(obs);
         }
-        for (int i = 0; i < num_cameras; ++i) {
+        for (int i = 0; i < num_cameras; ++i) 
+        {
             double r0, r1, r2;
             ifs >> r0 >> r1 >> r2;
             Eigen::Vector3d rot = Eigen::Vector3d(r0, r1, r2);
@@ -120,7 +180,8 @@ public:
             Eigen::Vector3d t = Eigen::Vector3d(t0, t1, t2);
             double f, k1, k2;
             ifs >> f >> k1 >> k2;
-            if (!ifs) {
+            if (!ifs) 
+            {
             std::cerr << "Failed reading camera #" << i << "\n";
             return;
             }
@@ -133,32 +194,40 @@ public:
                 i
             );
         }
-        for (int i = 0; i < num_points; ++i) {
+        for (int i = 0; i < num_points; ++i) 
+        {
             double X, Y, Z;
             ifs >> X >> Y >> Z;
             if (!ifs) {
             std::cerr << "Failed reading point #" << i << "\n";
             return;
             }
-            points_[i] = Point3D(X, Y, Z);
-        }    
+            points_.emplace_back(X, Y, Z);
+        }
         ifs.close();
         return;
     }
 
-    std::vector<CameraModelPinholeBal> get_cameras() const {
+    std::vector<CameraModelPinholeBal> get_cameras()
+    {
         return cameras_;
     }
-    std::vector<Observation> get_observations() const {
+    std::vector<Observation> get_observations()
+    {
         return observations_;
     }
-    std::vector<Point3D> get_points() const {
+    std::vector<Point3D> get_points()
+    {
         return points_;
     }
+
+private:
     std::vector<CameraModelPinholeBal> cameras_;
     std::vector<Observation> observations_;
     std::vector<Point3D> points_;
-private:
+    int max_iter_ = 10;
+    double convergence_threshold_ = 1e-15;
+
     Eigen::Matrix<double, 3, 3> skew_symmetric(
         const Eigen::Vector3d& v
     )
@@ -195,7 +264,9 @@ private:
         Eigen::Matrix<double, 6, 6> H = Eigen::Matrix<double, 6, 6>::Zero();
         Eigen::Matrix<double, 6, 1> b = Eigen::Matrix<double, 6, 1>::Zero();    
         Eigen::Matrix<double, 4, 6> dproj_dxi = get_dproj_dxi(point3d);
+        std::cout << "dproj_dxi: \n" << dproj_dxi << std::endl;
         Eigen::Matrix<double, 2, 6> jacobian_full = jacobian * dproj_dxi;
+        std::cout << "Jacobian full: \n" << jacobian_full << std::endl;
 
         Eigen::Vector2d e = point2d - projected_2d;
         // H = J^T * J

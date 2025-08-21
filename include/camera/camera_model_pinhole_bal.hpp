@@ -26,7 +26,10 @@ class CameraModelPinholeBal : public CameraModelBase
         double get_k2() const { return k2_; }
         Eigen::Vector3d get_rotation() const { return rot_; }
         Eigen::Vector3d get_translation() const { return t_; }
-        void set_camera_idx(int idx) { camera_idx_ = idx; }
+        int get_camera_id() const { return camera_idx_; }
+        void set_camera_id(int id) { camera_idx_ = id; }
+        CameraModelName get_camera_model_name() const { return camera_model_name_; }
+        void set_camera_model_name(CameraModelName name) { camera_model_name_ = name; }
 
         // functions
         Eigen::Matrix<double, 2, 4> get_prj_jacobian(const Eigen::Vector3d &X) const;
