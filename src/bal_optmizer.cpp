@@ -4,7 +4,7 @@
 #include "bal_optmizer.hpp"
 
 
-std::vector<OptResult> BaOptimizer::optimize_all_cameras() 
+std::vector<OptResult> BaOptimizer::optimize() 
 {
     std::vector<OptResult> results;
     for (int i = 0; i < cameras_.size(); ++i) 
@@ -47,7 +47,7 @@ OptResult BaOptimizer::optimize_camera(
 {
     double residual = 0.0;
     int cam_idx = cam.get_camera_id();
-    Eigen::Matrix3d R_ini = cam.rotationMatrix();
+    Eigen::Matrix3d R_ini = cam.rotation_matrix();
     Eigen::Vector3d t_ini = cam.get_translation();
     for (int it = 0; it < max_iter_; ++it) 
     {
@@ -214,7 +214,7 @@ std::tuple<Eigen::Matrix<double, 6, 6>, Eigen::Matrix<double, 6, 1>> BaOptimizer
     Eigen::Vector2d e = point2d - projected_2d;
     // H = J^T * J
     H += jacobian_full.transpose() * jacobian_full;
-    // b = J^T * r
+    // b = J^T * e
     b += jacobian_full.transpose() * e;
     return std::make_tuple(H, b);
 }

@@ -20,7 +20,7 @@ void print_summary(
     std::cout << "Residual: " << result.residual << std::endl;
     std::cout << "Optimized Rotation Matrix:\n" << result.R << std::endl;
     std::cout << "Optimized Translation Vector: " << result.t.transpose() << std::endl;
-    std::cout << "Initial Rotation Matrix:\n" << camera0.rotationMatrix() << std::endl;
+    std::cout << "Initial Rotation Matrix:\n" << camera0.rotation_matrix() << std::endl;
     std::cout << "Initial Translation Vector: " << camera0.get_translation().transpose() << std::endl;
     std::cout << std::string(50, '-') << std::endl;
     std::cout << "R * R^T ? : \n" << result.R * result.R.transpose()  << std::endl;
@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
     BaOptimizer optimizer;
     optimizer.load_data("data/problem-16-22106-pre.txt");
     auto opt_start_time = std::chrono::high_resolution_clock::now();
-    std::vector<OptResult> results = optimizer.optimize_all_cameras();
+    std::vector<OptResult> results = optimizer.optimize();
     auto opt_end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> opt_duration = opt_end_time - opt_start_time;
     std::cout << "Optimization time: " << opt_duration.count() << " seconds" << std::endl;

@@ -39,7 +39,7 @@ Eigen::Vector2d CameraModelPinholeBal::project(
     return pp;
 }
 
-Eigen::Matrix3d CameraModelPinholeBal::rotationMatrix() const 
+Eigen::Matrix3d CameraModelPinholeBal::rotation_matrix() const 
 {
     double theta = rot_.norm();
     Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
