@@ -5,54 +5,27 @@
 #include <Eigen/Sparse>
 #include <Eigen/Geometry>
 #include <camera/camera_model_pinhole_bal.hpp>
+#include <ba/bundle_adjuster_base.hpp>
 
-using Point3D = Eigen::Vector3d;
-
-struct Observation {
-  int camera_idx;
-  int point_idx;
-  double x, y;
-};
-
-struct OptResult {
-    Eigen::Matrix3d R;
-    Eigen::Vector3d t;
-    double residual;
-};
-
-class BaOptimizer 
+class BalBundleAdjuster: public BundleAdjusterBase
 {
 public:
-    BaOptimizer() = default;
-    ~BaOptimizer() = default;
-
-    std::vector<OptResult> optimize();
-
+    BalBundleAdjuster() = default;
+    ~BalBundleAdjuster() = default;
+    std::vector<OptResult> optimize() override;
     OptResult optimize_camera(
-        const std::vector<Observation> obs,
+        const std::vector<Observation>& obs,
         const CameraModelPinholeBal cam,
         const std::vector<Point3D> points
     );
-
     void load_data(std::string path);
-
     std::vector<CameraModelPinholeBal> get_cameras()
     {
-        return cameras_;
+        return static_cast<std::vector<CameraModelPinholeBal>>(cameras_);
     }
-    std::vector<Observation> get_observations()
-    {
-        return observations_;
-    }
-    std::vector<Point3D> get_points()
-    {
-        return points_;
-    }
-
+    
 private:
     std::vector<CameraModelPinholeBal> cameras_;
-    std::vector<Observation> observations_;
-    std::vector<Point3D> points_;
     int max_iter_ = 30;
     double convergence_threshold_ = 1e-15;
 

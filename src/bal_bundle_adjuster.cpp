@@ -1,10 +1,10 @@
 #include <math.h>
 
 #include <sophus/so3.hpp>
-#include "bal_optmizer.hpp"
+#include <ba/bal_bundle_adjuster.hpp>
 
 
-std::vector<OptResult> BaOptimizer::optimize() 
+std::vector<OptResult> BalBundleAdjuster::optimize() 
 {
     std::vector<OptResult> results;
     for (int i = 0; i < cameras_.size(); ++i) 
@@ -39,8 +39,8 @@ std::vector<OptResult> BaOptimizer::optimize()
     return results;
 }
 
-OptResult BaOptimizer::optimize_camera(
-    const std::vector<Observation> obs,
+OptResult BalBundleAdjuster::optimize_camera(
+    const std::vector<Observation>& obs,
     const CameraModelPinholeBal cam,
     const std::vector<Point3D> points
 ) 
@@ -73,6 +73,7 @@ OptResult BaOptimizer::optimize_camera(
         
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end_time - start_time;
+        std::cout << "Iteration " << it << ": Time taken for Hessian computation: " << duration.count() << " seconds" << std::endl;
 
         // double lambda = 1e-6;
         // H_sum.diagonal().array() += lambda;
@@ -102,7 +103,7 @@ OptResult BaOptimizer::optimize_camera(
     return OptResult{R_ini, t_ini, residual};
 }
 
-void BaOptimizer::load_data(std::string path) 
+void BalBundleAdjuster::load_data(std::string path) 
 {
     std::ifstream ifs(path);
     if (!ifs) 
@@ -172,7 +173,7 @@ void BaOptimizer::load_data(std::string path)
     return;
 }
 
-Eigen::Matrix<double, 3, 3> BaOptimizer::skew_symmetric(
+Eigen::Matrix<double, 3, 3> BalBundleAdjuster::skew_symmetric(
     const Eigen::Vector3d& v
 )
 {
@@ -183,7 +184,7 @@ Eigen::Matrix<double, 3, 3> BaOptimizer::skew_symmetric(
     return skew;
 }
 
-Eigen::Matrix<double, 4, 6> BaOptimizer::get_dproj_dxi(
+Eigen::Matrix<double, 4, 6> BalBundleAdjuster::get_dproj_dxi(
     const Eigen::Vector3d& point
 )
 {
@@ -196,7 +197,7 @@ Eigen::Matrix<double, 4, 6> BaOptimizer::get_dproj_dxi(
     return dproj_dxi;
 }
 
-std::tuple<Eigen::Matrix<double, 6, 6>, Eigen::Matrix<double, 6, 1>> BaOptimizer::compute_H_b
+std::tuple<Eigen::Matrix<double, 6, 6>, Eigen::Matrix<double, 6, 1>> BalBundleAdjuster::compute_H_b
 (
     Eigen::Vector3d point3d,
     Eigen::Vector2d point2d,  

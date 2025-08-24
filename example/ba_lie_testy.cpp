@@ -4,7 +4,7 @@
 
 #include <Eigen/Core>
 #include <camera/camera_model_pinhole_bal.hpp>
-#include <bal_optmizer.hpp>
+#include <ba/bal_bundle_adjuster.hpp>
 
 void print_summary(
     const OptResult& result, 
@@ -40,7 +40,7 @@ void print_summary(
     std::cout << std::string(50, '=') << std::endl;
 }
 int main(int argc, char** argv) {
-    BaOptimizer optimizer;
+    BalBundleAdjuster optimizer;
     optimizer.load_data("data/problem-16-22106-pre.txt");
     auto opt_start_time = std::chrono::high_resolution_clock::now();
     std::vector<OptResult> results = optimizer.optimize();
