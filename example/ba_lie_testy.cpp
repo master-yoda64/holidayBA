@@ -46,8 +46,9 @@ int main(int argc, char** argv) {
     std::vector<OptResult> results = optimizer.optimize();
     auto opt_end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> opt_duration = opt_end_time - opt_start_time;
-    std::cout << "Optimization time: " << opt_duration.count() << " seconds" << std::endl;
-
+    std::cout << std::string(50, '=') << std::endl;
+    std::cout << "Optimization time for all cameras: " << opt_duration.count() << " seconds" << std::endl;
+    std::cout << std::string(50, '=') << std::endl;
     // ================================//
     // Print summary for first camera  //
     // ================================//

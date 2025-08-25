@@ -1,4 +1,5 @@
 #include <math.h>
+#include <thread>
 
 #include <sophus/so3.hpp>
 #include <ba/bal_bundle_adjuster.hpp>
@@ -12,6 +13,8 @@ std::vector<OptResult> BalBundleAdjuster::optimize()
         const CameraModelPinholeBal& camera = cameras_[i];
         std::cout << std::string(50, '=') << std::endl;
         std::cout << "Optimizing camera ID: " << camera.get_camera_id() << std::endl;
+
+        const int num_threads = std::thread::hardware_concurrency();
         std::vector<Observation> observations;
         for (const auto &obs : observations_) 
         {
@@ -55,20 +58,40 @@ OptResult BalBundleAdjuster::optimize_camera(
         Eigen::Matrix<double,6,1> b = Eigen::Matrix<double,6,1>::Zero();
 
         auto start_time = std::chrono::high_resolution_clock::now();
-        for (int j = 0; j < obs.size(); j++) 
-        {
-            const Observation& ob = obs[j];
+        
+        const int num_threads = std::thread::hardware_concurrency();
+        const int chunk_size = (obs.size() + num_threads - 1) / num_threads;
 
-            Eigen::Vector3d X = points[ob.point_idx];
-            Eigen::Vector2d z(ob.x, ob.y);
-            double f = cam.get_fx();
-            double k1 = cam.get_k1();
-            double k2 = cam.get_k2();
-            Eigen::Vector2d z_hat = cam.project(X, R_ini, t_ini);
-            Eigen::Matrix<double,2,4> Jprj = cam.get_prj_jacobian(X);
-            auto [Hi, bi] = compute_H_b(X, z, z_hat, R_ini, t_ini, Jprj);
-            H += Hi;
-            b += bi;
+        std::vector<Eigen::MatrixXd> H_locals(num_threads, Eigen::MatrixXd::Zero(H.rows(), H.cols()));
+        std::vector<Eigen::VectorXd> b_locals(num_threads, Eigen::VectorXd::Zero(b.size()));
+        {
+            std::vector<std::jthread> threads;
+            threads.reserve(num_threads);
+
+            for (int t = 0; t < num_threads; ++t) 
+            {
+                int start = t * chunk_size;
+                int end = std::min(start + chunk_size, (int)obs.size());
+                if (start >= obs.size()) break;
+
+                threads.emplace_back(&BalBundleAdjuster::process_chunk,
+                    this,
+                    start, end,
+                    std::cref(obs),
+                    std::cref(points),
+                    std::cref(cam),
+                    std::cref(R_ini),
+                    std::cref(t_ini),
+                    std::ref(H_locals[t]),
+                    std::ref(b_locals[t]));
+            }
+        }
+        // jthreadはスコープ終了でjoinされる
+
+        // 最後に合計
+        for (int t = 0; t < num_threads; ++t) {
+            H += H_locals[t];
+            b += b_locals[t];
         }
         
         auto end_time = std::chrono::high_resolution_clock::now();
