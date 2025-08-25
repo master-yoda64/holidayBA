@@ -5,6 +5,43 @@
 #include <ba/bal_bundle_adjuster.hpp>
 
 
+std::vector<OptResult> BalBundleAdjuster::optimize_thread() 
+{
+    std::vector<OptResult> results;
+    for (int i = 0; i < cameras_.size(); ++i) 
+    {
+        const CameraModelPinholeBal& camera = cameras_[i];
+        std::cout << std::string(50, '=') << std::endl;
+        std::cout << "Optimizing camera ID: " << camera.get_camera_id() << std::endl;
+
+        const int num_threads = std::thread::hardware_concurrency();
+        std::vector<Observation> observations;
+        for (const auto &obs : observations_) 
+        {
+            if (obs.camera_idx == camera.get_camera_id()) 
+            {
+                observations.push_back(obs);
+            }
+
+        }
+        if (observations.size() == 0) 
+        {
+            std::cerr << "No observations for camera ID: " << camera.get_camera_id() << std::endl;
+            continue;
+        }
+        auto start_time = std::chrono::high_resolution_clock::now();
+        auto result = optimize_camera_thread(observations, camera, points_);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end_time - start_time;
+        std::cout << "Optimization time for camera ID " << camera.get_camera_id()
+                << ": " << duration.count() << " seconds" << std::endl;
+        std::cout << "Residual: " << result.residual << std::endl;
+
+        results.push_back(result);
+    }
+    return results;
+}
+
 std::vector<OptResult> BalBundleAdjuster::optimize() 
 {
     std::vector<OptResult> results;
@@ -41,8 +78,7 @@ std::vector<OptResult> BalBundleAdjuster::optimize()
     }
     return results;
 }
-
-OptResult BalBundleAdjuster::optimize_camera(
+OptResult BalBundleAdjuster::optimize_camera_thread(
     const std::vector<Observation>& obs,
     const CameraModelPinholeBal cam,
     const std::vector<Point3D> points
@@ -52,11 +88,10 @@ OptResult BalBundleAdjuster::optimize_camera(
     int cam_idx = cam.get_camera_id();
     Eigen::Matrix3d R_ini = cam.rotation_matrix();
     Eigen::Vector3d t_ini = cam.get_translation();
-    for (int it = 0; it < max_iter_; ++it) 
+    for (int it = 0; it < max_iter_; ++it)
     {
         Eigen::Matrix<double,6,6> H = Eigen::Matrix<double,6,6>::Zero();
         Eigen::Matrix<double,6,1> b = Eigen::Matrix<double,6,1>::Zero();
-
         auto start_time = std::chrono::high_resolution_clock::now();
         
         const int num_threads = std::thread::hardware_concurrency();
@@ -72,7 +107,11 @@ OptResult BalBundleAdjuster::optimize_camera(
             {
                 int start = t * chunk_size;
                 int end = std::min(start + chunk_size, (int)obs.size());
-                if (start >= obs.size()) break;
+                if (start >= obs.size())
+                {
+                    std::cout << "Thread " << t << " not created, start index " << start << " out of range." << std::endl;
+                    break; // 範囲外ならスレッドを作らない
+                } 
 
                 threads.emplace_back(&BalBundleAdjuster::process_chunk,
                     this,
@@ -93,7 +132,68 @@ OptResult BalBundleAdjuster::optimize_camera(
             H += H_locals[t];
             b += b_locals[t];
         }
-        
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end_time - start_time;
+        std::cout << "Iteration " << it << ": Time taken for Hessian computation: " << duration.count() << " seconds" << std::endl;
+
+        // double lambda = 1e-6;
+        // H_sum.diagonal().array() += lambda;
+
+        Eigen::SparseMatrix<double> H_sparse = H.sparseView();
+        Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower | Eigen::Upper> cg;
+        cg.setTolerance(1e-4);
+        cg.compute(H_sparse);
+        Eigen::VectorXd delta = cg.solve(b);
+        if (cg.info() != Eigen::Success) 
+        {
+            std::cerr << "Conjugate gradient failed to solve the system." << std::endl;
+            return OptResult{R_ini, t_ini, residual};
+        }
+        Eigen::Matrix<double, 3, 1> delta_t = delta.tail<3>();
+        Sophus::SO3<double> delta_R = Sophus::SO3<double>::exp(delta.head<3>());
+        R_ini = delta_R.matrix() * R_ini;
+        t_ini += delta_t;
+        residual = (H * delta - b).squaredNorm();
+        if (residual < convergence_threshold_) 
+        {
+            std::cout << "Converged at iteration " << it << " with residual: " << residual << std::endl;
+            break;
+        }
+        //std::cout << "Iteration " << it << ": Time taken for computation: " << duration.count() << " seconds" << std::endl;
+    }
+    return OptResult{R_ini, t_ini, residual};
+}
+
+OptResult BalBundleAdjuster::optimize_camera(
+    const std::vector<Observation>& obs,
+    const CameraModelPinholeBal cam,
+    const std::vector<Point3D> points
+) 
+{
+    double residual = 0.0;
+    int cam_idx = cam.get_camera_id();
+    Eigen::Matrix3d R_ini = cam.rotation_matrix();
+    Eigen::Vector3d t_ini = cam.get_translation(); 
+    for (int it = 0; it < max_iter_; ++it) 
+    {
+        Eigen::Matrix<double,6,6> H = Eigen::Matrix<double,6,6>::Zero();
+        Eigen::Matrix<double,6,1> b = Eigen::Matrix<double,6,1>::Zero();
+        auto start_time = std::chrono::high_resolution_clock::now();
+
+        for (int j = 0; j < obs.size(); j++) 
+        {
+            const Observation& ob = obs[j]; 
+            Eigen::Vector3d X = points[ob.point_idx]; 
+            Eigen::Vector2d z(ob.x, ob.y); 
+            double f = cam.get_fx(); 
+            double k1 = cam.get_k1(); 
+            double k2 = cam.get_k2(); 
+            Eigen::Vector2d z_hat = cam.project(X, R_ini, t_ini); 
+            Eigen::Matrix<double,2,4> Jprj = cam.get_prj_jacobian(X); 
+            auto [Hi, bi] = compute_H_b(X, z, z_hat, R_ini, t_ini, Jprj); 
+            H += Hi; 
+            b += bi; 
+        }
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end_time - start_time;
         std::cout << "Iteration " << it << ": Time taken for Hessian computation: " << duration.count() << " seconds" << std::endl;

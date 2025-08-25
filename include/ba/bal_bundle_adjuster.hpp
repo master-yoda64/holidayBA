@@ -13,7 +13,13 @@ public:
     BalBundleAdjuster() = default;
     ~BalBundleAdjuster() = default;
     std::vector<OptResult> optimize() override;
+    std::vector<OptResult> optimize_thread();
     OptResult optimize_camera(
+        const std::vector<Observation>& obs,
+        const CameraModelPinholeBal cam,
+        const std::vector<Point3D> points
+    );
+    OptResult optimize_camera_thread(
         const std::vector<Observation>& obs,
         const CameraModelPinholeBal cam,
         const std::vector<Point3D> points
@@ -27,7 +33,7 @@ public:
 private:
     std::vector<CameraModelPinholeBal> cameras_;
     int max_iter_ = 30;
-    double convergence_threshold_ = 1e-15;
+    double convergence_threshold_ = 1e-12; //1e-15だとcamera4が収束しない、数値誤差の範囲は1e-14~15くらい？
 
     Eigen::Matrix<double, 3, 3> skew_symmetric(
         const Eigen::Vector3d& v

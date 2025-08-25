@@ -46,8 +46,16 @@ int main(int argc, char** argv) {
     std::vector<OptResult> results = optimizer.optimize();
     auto opt_end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> opt_duration = opt_end_time - opt_start_time;
+
+    auto opt_start_time_thread = std::chrono::high_resolution_clock::now();
+    std::vector<OptResult> results_thread = optimizer.optimize_thread();
+    auto opt_end_time_thread = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> opt_duration_thread = opt_end_time_thread - opt_start_time_thread;
     std::cout << std::string(50, '=') << std::endl;
-    std::cout << "Optimization time for all cameras: " << opt_duration.count() << " seconds" << std::endl;
+    std::cout << "Optimization time: " << opt_duration.count() << " seconds" << std::endl;
+    std::cout << std::string(50, '=') << std::endl;
+    std::cout << std::string(50, '=') << std::endl;
+    std::cout << "Optimization time (threaded): " << opt_duration_thread.count() << " seconds" << std::endl;
     std::cout << std::string(50, '=') << std::endl;
     // ================================//
     // Print summary for first camera  //
@@ -64,8 +72,19 @@ int main(int argc, char** argv) {
             obs0.push_back(obs);
         }
     }
+    // std::cout << "non parallel version" << std::endl;
+    // OptResult result = optimizer.optimize_camera(obs0, camera0, points);
+    // std::cout << "parallel version" << std::endl;
+    // optimizer.optimize_camera_thresh(obs0, camera0, points);
+    std::cout << "single thread version" << std::endl;
+    std::cout << std::string(50, '-') << std::endl;
     OptResult result = results[camera_id];
     print_summary(result, obs0, points, cameras, camera_id);
+
+    std::cout << "multi thread version" << std::endl;
+    std::cout << std::string(50, '-') << std::endl;
+    OptResult result_thread = results_thread[camera_id];
+    print_summary(result_thread, obs0, points, cameras, camera_id);
     
 
     return 0;
