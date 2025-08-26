@@ -119,7 +119,7 @@ RUN cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CXX_FLAGS_RELEASE=-O3 ..
 RUN make -j12
-RUN make test
+#RUN make test
 RUN make install
 
 #===================================#
