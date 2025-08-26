@@ -18,16 +18,16 @@ public:
         const CameraModelPinholeBal cam,
         const std::vector<Point3D> points
     );
-    void load_data(std::string path);
     std::vector<CameraModelPinholeBal> get_cameras()
     {
         return static_cast<std::vector<CameraModelPinholeBal>>(cameras_);
     }
+    void load_data(std::string path);
     
 private:
     std::vector<CameraModelPinholeBal> cameras_;
     int max_iter_ = 30;
-    double convergence_threshold_ = 1e-15;
+    double convergence_threshold_ = 1e-12; //1e-15だとcamera4が収束しない、数値誤差の範囲は1e-14~15くらい？
 
     Eigen::Matrix<double, 3, 3> skew_symmetric(
         const Eigen::Vector3d& v
@@ -43,6 +43,16 @@ private:
         Eigen::Matrix3d R_ini,
         Eigen::Vector3d t_ini,
         Eigen::Matrix<double, 2, 4> jacobian
+    );
+    void compute_H_process_chunk(
+        int start, int end,
+        const std::vector<Observation>& obs,
+        const std::vector<Point3D> points,
+        const CameraModelPinholeBal& cam,
+        const Eigen::Matrix3d& R_ini,
+        const Eigen::Vector3d& t_ini,
+        Eigen::MatrixXd& H_local,
+        Eigen::VectorXd& b_local
     );
 };
 

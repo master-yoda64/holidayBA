@@ -1,3 +1,4 @@
+#pragma once
 #include <bits/stdc++.h>
 #include <iostream>
 
@@ -28,10 +29,6 @@ public:
 
     virtual std::vector<OptResult> optimize() = 0;
 
-    std::vector<CameraModelBase> get_cameras()
-    {
-        return cameras_;
-    }
     std::vector<Observation> get_observations()
     {
         return observations_;
@@ -42,7 +39,6 @@ public:
     }
 
 protected:
-    std::vector<CameraModelBase> cameras_;
     std::vector<Observation> observations_;
     std::vector<Point3D> points_;
 };
