@@ -5,6 +5,7 @@
 #include <Eigen/Core>
 #include <camera/camera_model_pinhole_bal.hpp>
 #include <ba/bal_bundle_adjuster.hpp>
+#include <ba/ceres_bal_bundle_adjuster.hpp>
 
 void print_summary(
     const OptResult& result, 
@@ -15,17 +16,17 @@ void print_summary(
 ) 
 {
     CameraModelPinholeBal camera0 = cameras[camera_id];
-    std::cout << std::string(50, '=') << std::endl;
+    std::cout << std::string(70, '=') << std::endl;
     std::cout << "Camera ID: " << camera_id << std::endl;
     std::cout << "Residual: " << result.residual << std::endl;
     std::cout << "Optimized Rotation Matrix:\n" << result.R << std::endl;
     std::cout << "Optimized Translation Vector: " << result.t.transpose() << std::endl;
     std::cout << "Initial Rotation Matrix:\n" << camera0.rotation_matrix() << std::endl;
     std::cout << "Initial Translation Vector: " << camera0.get_translation().transpose() << std::endl;
-    std::cout << std::string(50, '-') << std::endl;
+    std::cout << std::string(70, '-') << std::endl;
     std::cout << "R * R^T ? : \n" << result.R * result.R.transpose()  << std::endl;
     std::cout << " det(R) = 1 ?: det(R) = " << result.R.determinant() << std::endl;
-    std::cout << std::string(50, '-') << std::endl;
+    std::cout << std::string(70, '-') << std::endl;
     int print_cnt = 0;
     for (Observation obs: obsavations) {
         if (print_cnt++ >= 5) break; // Limit to first 5 observations
@@ -37,30 +38,32 @@ void print_summary(
                   << ", 2D Point: (" << obs.x << ", " << obs.y << ")"
                   << ", Projected: (" << projected_point(0) << ", " << projected_point(1) << ")" << "\n";
     }
-    std::cout << std::string(50, '=') << std::endl;
+    std::cout << std::string(70, '=') << std::endl;
 }
 int main(int argc, char** argv) {
+    int camera_id = 5; // Change this to the desired camera ID
     BalBundleAdjuster optimizer;
     optimizer.load_data("data/problem-16-22106-pre.txt");
     auto opt_start_time = std::chrono::high_resolution_clock::now();
     std::vector<OptResult> results = optimizer.optimize();
     auto opt_end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> opt_duration = opt_end_time - opt_start_time;
-
-    auto opt_start_time_thread = std::chrono::high_resolution_clock::now();
-    std::vector<OptResult> results_thread = optimizer.optimize_thread();
-    auto opt_end_time_thread = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> opt_duration_thread = opt_end_time_thread - opt_start_time_thread;
-    std::cout << std::string(50, '=') << std::endl;
+    std::cout << std::string(70, '=') << std::endl;
     std::cout << "Optimization time: " << opt_duration.count() << " seconds" << std::endl;
-    std::cout << std::string(50, '=') << std::endl;
-    std::cout << std::string(50, '=') << std::endl;
-    std::cout << "Optimization time (threaded): " << opt_duration_thread.count() << " seconds" << std::endl;
-    std::cout << std::string(50, '=') << std::endl;
+
+    CeresBalBundleAdjuster ceres_optimizer;
+    ceres_optimizer.load_data("data/problem-16-22106-pre.txt");
+    auto ceres_opt_start_time = std::chrono::high_resolution_clock::now();
+    ceres_optimizer.add_residuals_camera_id(camera_id);
+    std::vector<OptResult> ceres_results  = ceres_optimizer.optimize();
+    auto ceres_opt_end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> ceres_opt_duration = ceres_opt_end_time - ceres_opt_start_time;
+    std::cout << std::string(70, '=') << std::endl;
+    std::cout << "Ceres Optimization time: " << ceres_opt_duration.count() << " seconds" << std::endl;
+
     // ================================//
     // Print summary for first camera  //
     // ================================//
-    int camera_id = 4; // Change this to the desired camera ID
     std::vector<CameraModelPinholeBal> cameras = optimizer.get_cameras();
     std::vector<Observation> observations = optimizer.get_observations();
     std::vector<Point3D> points = optimizer.get_points();
@@ -76,17 +79,11 @@ int main(int argc, char** argv) {
     // OptResult result = optimizer.optimize_camera(obs0, camera0, points);
     // std::cout << "parallel version" << std::endl;
     // optimizer.optimize_camera_thresh(obs0, camera0, points);
-    std::cout << "single thread version" << std::endl;
-    std::cout << std::string(50, '-') << std::endl;
     OptResult result = results[camera_id];
     print_summary(result, obs0, points, cameras, camera_id);
 
-    std::cout << "multi thread version" << std::endl;
-    std::cout << std::string(50, '-') << std::endl;
-    OptResult result_thread = results_thread[camera_id];
-    print_summary(result_thread, obs0, points, cameras, camera_id);
-    
-
+    OptResult ceres_result = ceres_results[camera_id];
+    print_summary(ceres_result, obs0, points, cameras, camera_id);
     return 0;
 }
 

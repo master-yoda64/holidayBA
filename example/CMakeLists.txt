@@ -8,7 +8,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 project(ba_lie_example)
 
-find_package(OpenMP)
+find_package(Ceres REQUIRED)
 find_package(Sophus REQUIRED)
 
 set(HOLIDAY_OPT_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
@@ -28,6 +28,6 @@ target_include_directories(ba_lie_example PRIVATE
 target_link_libraries(ba_lie_example PUBLIC 
     Eigen3::Eigen
     Sophus::Sophus
-    OpenMP::OpenMP_CXX
     holiday_opt
+    Ceres::ceres
 )
