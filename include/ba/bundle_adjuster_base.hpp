@@ -42,6 +42,10 @@ public:
     {
         return points_;
     }
+    std::vector<CameraModelType_t<CameraModelT>> get_cameras()
+    {
+        return cameras_;
+    }
 
 protected:
     std::vector<Observation> observations_;

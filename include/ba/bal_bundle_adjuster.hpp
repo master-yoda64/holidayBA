@@ -17,11 +17,6 @@ public:
         const std::vector<Observation>& obs,
         const CameraModelPinholeBal& cam
     ) override;
-    std::vector<CameraModelPinholeBal> get_cameras()
-    {
-        return cameras_;
-    }
-    
     void load_data(std::string path);
     
 private:

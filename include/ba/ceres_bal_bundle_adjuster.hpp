@@ -98,10 +98,6 @@ public:
         const CameraModelPinholeBal& cam
     ) override;
     void load_data(std::string path);
-    std::vector<CameraModelPinholeBal> get_cameras()
-    {
-        return cameras_;
-    }
   
 private:
     ceres::Problem problem_;
