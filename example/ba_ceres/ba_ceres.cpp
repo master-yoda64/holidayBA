@@ -58,6 +58,7 @@ int main(int argc, char** argv) {
     }
     auto ceres_opt_start_time = std::chrono::high_resolution_clock::now();
     OptResult ceres_result  = ceres_optimizer.optimize_camera(obs0, camera0);
+    //ceres_optimizer.optimize();
     auto ceres_opt_end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> ceres_opt_duration = ceres_opt_end_time - ceres_opt_start_time;
     std::cout << std::string(70, '=') << std::endl;

@@ -43,24 +43,26 @@ void CeresBalBundleAdjuster::add_residuals_camera_id(int camera_id)
 };
 std::vector<OptResult> CeresBalBundleAdjuster::optimize()
 {
-    ceres::Solver::Options options;
-    options.linear_solver_type = ceres::DENSE_SCHUR;
-    options.minimizer_progress_to_stdout = true;
-    ceres::Solver::Summary summary;
-    ceres::Solve(options, &problem_, &summary);
-    std::cout << summary.FullReport() << std::endl;
     std::vector<OptResult> results;
     for (int i = 0; i < camera_params_.size(); i++)
     {
-        OptResult result;
-        double* camera = camera_params_[i].data();
-        Eigen::Vector3d t(camera[3], camera[4], camera[5]);
-        Eigen::Matrix3d R;
-        ceres::AngleAxisToRotationMatrix(camera, R.data());
-        result.R = R;
-        result.t = t;
+        const CameraModelPinholeBal& camera = cameras_[i];
+        std::vector<Observation> observations;
+        for (const auto &obs : observations_) 
+        {
+            if (obs.camera_idx == camera.get_camera_id()) 
+            {
+                observations.push_back(obs);
+            }
+
+        }
+        if (observations.size() == 0) 
+        {
+            std::cerr << "No observations for camera ID: " << camera.get_camera_id() << std::endl;
+            continue;
+        }
+        auto result = optimize_camera(observations, camera);
         results.push_back(result);
-        result.residual = summary.final_cost;
     }
     return results;
 };
