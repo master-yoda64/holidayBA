@@ -4,7 +4,6 @@
 
 #include <Eigen/Core>
 #include <camera/camera_model_pinhole_bal.hpp>
-#include <ba/bal_bundle_adjuster.hpp>
 #include <ba/ceres_bal_bundle_adjuster.hpp>
 
 void print_summary(
@@ -41,16 +40,8 @@ void print_summary(
     std::cout << std::string(70, '=') << std::endl;
 }
 int main(int argc, char** argv) {
-    int camera_id = 5; // Change this to the desired camera ID
-    BalBundleAdjuster optimizer;
-    optimizer.load_data("data/problem-16-22106-pre.txt");
-    auto opt_start_time = std::chrono::high_resolution_clock::now();
-    std::vector<OptResult> results = optimizer.optimize();
-    auto opt_end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> opt_duration = opt_end_time - opt_start_time;
-    std::cout << std::string(70, '=') << std::endl;
-    std::cout << "Optimization time: " << opt_duration.count() << " seconds" << std::endl;
 
+    int camera_id = argv[1] ? std::stoi(argv[1]) : 0;
     CeresBalBundleAdjuster ceres_optimizer;
     ceres_optimizer.load_data("data/problem-16-22106-pre.txt");
     auto ceres_opt_start_time = std::chrono::high_resolution_clock::now();
@@ -61,12 +52,9 @@ int main(int argc, char** argv) {
     std::cout << std::string(70, '=') << std::endl;
     std::cout << "Ceres Optimization time: " << ceres_opt_duration.count() << " seconds" << std::endl;
 
-    // ================================//
-    // Print summary for first camera  //
-    // ================================//
-    std::vector<CameraModelPinholeBal> cameras = optimizer.get_cameras();
-    std::vector<Observation> observations = optimizer.get_observations();
-    std::vector<Point3D> points = optimizer.get_points();
+    std::vector<CameraModelPinholeBal> cameras = ceres_optimizer.get_cameras();
+    std::vector<Observation> observations = ceres_optimizer.get_observations();
+    std::vector<Point3D> points = ceres_optimizer.get_points();
     CameraModelPinholeBal camera0 = cameras[camera_id];
 
     std::vector<Observation> obs0;
@@ -75,13 +63,6 @@ int main(int argc, char** argv) {
             obs0.push_back(obs);
         }
     }
-    // std::cout << "non parallel version" << std::endl;
-    // OptResult result = optimizer.optimize_camera(obs0, camera0, points);
-    // std::cout << "parallel version" << std::endl;
-    // optimizer.optimize_camera_thresh(obs0, camera0, points);
-    OptResult result = results[camera_id];
-    print_summary(result, obs0, points, cameras, camera_id);
-
     OptResult ceres_result = ceres_results[camera_id];
     print_summary(ceres_result, obs0, points, cameras, camera_id);
     return 0;

@@ -20,8 +20,9 @@ public:
     );
     std::vector<CameraModelPinholeBal> get_cameras()
     {
-        return static_cast<std::vector<CameraModelPinholeBal>>(cameras_);
+        return cameras_;
     }
+    
     void load_data(std::string path);
     
 private:

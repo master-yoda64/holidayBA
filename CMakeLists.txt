@@ -42,4 +42,5 @@ target_link_libraries(holiday_opt PUBLIC
     ${OpenCV_LIBS}
 )
 
-add_subdirectory(example)
+add_subdirectory(example/ba_lie)
+add_subdirectory(example/ba_ceres)
