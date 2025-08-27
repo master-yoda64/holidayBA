@@ -8,7 +8,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 project(ba_lie_example)
 
-find_package(Ceres REQUIRED)
 find_package(Sophus REQUIRED)
 
 set(HOLIDAY_OPT_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
@@ -29,5 +28,4 @@ target_link_libraries(ba_lie_example PUBLIC
     Eigen3::Eigen
     Sophus::Sophus
     holiday_opt
-    Ceres::ceres
 )
