@@ -7,7 +7,7 @@
 #include <camera/camera_model_pinhole_bal.hpp>
 #include <ba/bundle_adjuster_base.hpp>
 
-class BalBundleAdjuster: public BundleAdjusterBase
+class BalBundleAdjuster: public BundleAdjusterBase<CameraModelPinholeBal>
 {
 public:
     BalBundleAdjuster() = default;
@@ -15,9 +15,8 @@ public:
     std::vector<OptResult> optimize() override;
     OptResult optimize_camera(
         const std::vector<Observation>& obs,
-        const CameraModelPinholeBal cam,
-        const std::vector<Point3D> points
-    );
+        const CameraModelPinholeBal& cam
+    ) override;
     std::vector<CameraModelPinholeBal> get_cameras()
     {
         return cameras_;
@@ -26,7 +25,6 @@ public:
     void load_data(std::string path);
     
 private:
-    std::vector<CameraModelPinholeBal> cameras_;
     int max_iter_ = 30;
     double convergence_threshold_ = 1e-12; //1e-15だとcamera4が収束しない、数値誤差の範囲は1e-14~15くらい？
 

@@ -26,7 +26,7 @@ std::vector<OptResult> BalBundleAdjuster::optimize()
             continue;
         }
         auto start_time = std::chrono::high_resolution_clock::now();
-        auto result = optimize_camera(observations, camera, points_);
+        auto result = optimize_camera(observations, camera);
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end_time - start_time;
         std::cout << "Optimization time" 
@@ -41,8 +41,7 @@ std::vector<OptResult> BalBundleAdjuster::optimize()
 }
 OptResult BalBundleAdjuster::optimize_camera(
     const std::vector<Observation>& obs,
-    const CameraModelPinholeBal cam,
-    const std::vector<Point3D> points
+    const CameraModelPinholeBal& cam
 ) 
 {
     double residual = 0.0;
@@ -78,7 +77,7 @@ OptResult BalBundleAdjuster::optimize_camera(
                     this,
                     start, end,
                     std::cref(obs),
-                    std::cref(points),
+                    std::cref(points_),
                     std::cref(cam),
                     std::cref(R_ini),
                     std::cref(t_ini),

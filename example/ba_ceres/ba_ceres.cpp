@@ -44,13 +44,6 @@ int main(int argc, char** argv) {
     int camera_id = argv[1] ? std::stoi(argv[1]) : 0;
     CeresBalBundleAdjuster ceres_optimizer;
     ceres_optimizer.load_data("data/problem-16-22106-pre.txt");
-    auto ceres_opt_start_time = std::chrono::high_resolution_clock::now();
-    ceres_optimizer.add_residuals_camera_id(camera_id);
-    std::vector<OptResult> ceres_results  = ceres_optimizer.optimize();
-    auto ceres_opt_end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> ceres_opt_duration = ceres_opt_end_time - ceres_opt_start_time;
-    std::cout << std::string(70, '=') << std::endl;
-    std::cout << "Ceres Optimization time: " << ceres_opt_duration.count() << " seconds" << std::endl;
 
     std::vector<CameraModelPinholeBal> cameras = ceres_optimizer.get_cameras();
     std::vector<Observation> observations = ceres_optimizer.get_observations();
@@ -63,7 +56,13 @@ int main(int argc, char** argv) {
             obs0.push_back(obs);
         }
     }
-    OptResult ceres_result = ceres_results[camera_id];
+    auto ceres_opt_start_time = std::chrono::high_resolution_clock::now();
+    OptResult ceres_result  = ceres_optimizer.optimize_camera(obs0, camera0);
+    auto ceres_opt_end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> ceres_opt_duration = ceres_opt_end_time - ceres_opt_start_time;
+    std::cout << std::string(70, '=') << std::endl;
+    std::cout << "Ceres Optimization time: " << ceres_opt_duration.count() << " seconds" << std::endl;
+
     print_summary(ceres_result, obs0, points, cameras, camera_id);
     return 0;
 }

@@ -6,6 +6,7 @@
 #include <Eigen/Sparse>
 #include <Eigen/Geometry>
 #include <camera/camera_model_pinhole_bal.hpp>
+#include <camera/camera_type_traits.hpp>
 
 using Point3D = Eigen::Vector3d;
 
@@ -21,6 +22,7 @@ struct OptResult {
     double residual;
 };
 
+template<typename CameraModelT>
 class BundleAdjusterBase 
 {
 public:
@@ -28,7 +30,10 @@ public:
     ~BundleAdjusterBase() = default;
 
     virtual std::vector<OptResult> optimize() = 0;
-
+    virtual OptResult optimize_camera(
+        const std::vector<Observation>& obs,
+        const CameraModelType_t<CameraModelT>& cam
+    ) = 0;
     std::vector<Observation> get_observations()
     {
         return observations_;
@@ -41,4 +46,5 @@ public:
 protected:
     std::vector<Observation> observations_;
     std::vector<Point3D> points_;
+    std::vector<CameraModelType_t<CameraModelT>> cameras_;
 };

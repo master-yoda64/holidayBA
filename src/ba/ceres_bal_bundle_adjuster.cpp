@@ -65,6 +65,30 @@ std::vector<OptResult> CeresBalBundleAdjuster::optimize()
     return results;
 };
 
+OptResult CeresBalBundleAdjuster::optimize_camera(
+    const std::vector<Observation>& obs,
+    const CameraModelPinholeBal& cam
+) 
+{
+    int cam_id = cam.get_camera_id(); 
+    add_residuals_camera_id(cam_id);
+    ceres::Solver::Options options;
+    options.linear_solver_type = ceres::DENSE_SCHUR;
+    options.minimizer_progress_to_stdout = true;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem_, &summary);
+    std::cout << summary.FullReport() << std::endl;
+    OptResult result;
+    double* camera = camera_params_[0].data();
+    Eigen::Vector3d t(camera[3], camera[4], camera[5]);
+    Eigen::Matrix3d R;
+    ceres::AngleAxisToRotationMatrix(camera, R.data());
+    result.R = R;
+    result.t = t;
+    result.residual = summary.final_cost;
+    return result;
+};
+
 void CeresBalBundleAdjuster::load_data(std::string path) 
 {
     std::ifstream ifs(path);

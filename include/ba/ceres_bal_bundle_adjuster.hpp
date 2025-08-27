@@ -86,14 +86,17 @@ struct SnavelyReprojectionError {
 
 };
 
-class CeresBalBundleAdjuster : public BundleAdjusterBase
+class CeresBalBundleAdjuster : public BundleAdjusterBase<CameraModelPinholeBal>
 {
 public:
     CeresBalBundleAdjuster(){};
     ~CeresBalBundleAdjuster(){};
 
-    void add_residuals_camera_id(int camera_id);
-    std::vector<OptResult> optimize();
+    std::vector<OptResult> optimize() override;
+    OptResult optimize_camera(
+        const std::vector<Observation>& obs,
+        const CameraModelPinholeBal& cam
+    ) override;
     void load_data(std::string path);
     std::vector<CameraModelPinholeBal> get_cameras()
     {
@@ -102,6 +105,6 @@ public:
   
 private:
     ceres::Problem problem_;
-    std::vector<CameraModelPinholeBal> cameras_;
     std::vector<std::vector<double>> camera_params_; 
+    void add_residuals_camera_id(int camera_id);
 };
