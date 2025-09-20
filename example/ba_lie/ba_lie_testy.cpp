@@ -1,6 +1,9 @@
 #include <bits/stdc++.h>
 #include <math.h>
 #include <iostream>
+#include <expected>
+#include <system_error>
+
 
 #include <Eigen/Core>
 #include <camera/camera_model_pinhole_bal.hpp>
