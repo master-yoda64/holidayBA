@@ -147,27 +147,40 @@ void BalBundleAdjuster::compute_H_process_chunk(
         Eigen::Vector2d z_hat = cam.project(X, R_ini, t_ini);
         Eigen::Matrix<double, 2, 4> Jprj = cam.get_prj_jacobian(X);
 
-        auto [Hi, bi] = compute_H_b(X, z, z_hat, R_ini, t_ini, Jprj);
-
+        auto [Hi, bi] = skew_symmetric(X)
+            .and_then([this](const Eigen::Matrix3d& hatp) {
+                return this->get_dproj_dxi(hatp);
+            })
+            .and_then([this, &z, &z_hat, &R_ini, &t_ini, &Jprj](const Eigen::Matrix<double, 4, 6>& dproj_dxi) {
+                return this->compute_H_b(
+                    z, 
+                    z_hat, 
+                    R_ini, 
+                    t_ini, 
+                    Jprj, 
+                    dproj_dxi
+                );
+            })
+            .value_or(std::make_tuple(Eigen::Matrix<double, 6, 6>::Zero(), Eigen::Matrix<double, 6, 1>::Zero()));
         H_local += Hi;
         b_local += bi;
     }
 }
 
-void BalBundleAdjuster::load_data(std::string path) 
+std::expected<bool, std::error_code> BalBundleAdjuster::load_data(std::string path) 
 {
     std::ifstream ifs(path);
     if (!ifs) 
     {
         std::cerr << "Failed to open: " << path << "\n";
-        return;
+        return std::unexpected(std::make_error_code(std::errc::invalid_argument));
     }
     int num_cameras, num_points, num_observations;
     ifs >> num_cameras >> num_points >> num_observations;
     if (!ifs) 
     {
         std::cerr << "Failed reading header.\n";
-        return;
+        return std::unexpected(std::make_error_code(std::errc::invalid_argument));
     }
     std::cout << "Cameras: " << num_cameras 
             << ", Points: " << num_points 
@@ -181,8 +194,8 @@ void BalBundleAdjuster::load_data(std::string path)
         ifs >> obs.camera_idx >> obs.point_idx >> obs.x >> obs.y;
         if (!ifs) 
         {
-        std::cerr << "Failed reading observation #" << i << "\n";
-        return;
+            std::cerr << "Failed reading observation #" << i << "\n";
+            return std::unexpected(std::make_error_code(std::errc::invalid_argument));
         }
         observations_.push_back(obs);
     }
@@ -199,7 +212,7 @@ void BalBundleAdjuster::load_data(std::string path)
         if (!ifs) 
         {
         std::cerr << "Failed reading camera #" << i << "\n";
-        return;
+        return std::unexpected(std::make_error_code(std::errc::invalid_argument));
         }
         cameras_.emplace_back(
             f, 
@@ -216,15 +229,15 @@ void BalBundleAdjuster::load_data(std::string path)
         ifs >> X >> Y >> Z;
         if (!ifs) {
         std::cerr << "Failed reading point #" << i << "\n";
-        return;
+            return std::unexpected(std::make_error_code(std::errc::invalid_argument));
         }
         points_.emplace_back(X, Y, Z);
     }
     ifs.close();
-    return;
+    return true;
 }
 
-Eigen::Matrix<double, 3, 3> BalBundleAdjuster::skew_symmetric(
+std::expected<Eigen::Matrix<double, 3, 3>, std::error_code> BalBundleAdjuster::skew_symmetric(
     const Eigen::Vector3d& v
 )
 {
@@ -235,32 +248,31 @@ Eigen::Matrix<double, 3, 3> BalBundleAdjuster::skew_symmetric(
     return skew;
 }
 
-Eigen::Matrix<double, 4, 6> BalBundleAdjuster::get_dproj_dxi(
-    const Eigen::Vector3d& point
+std::expected<Eigen::Matrix<double, 4, 6>, std::error_code> BalBundleAdjuster::get_dproj_dxi(
+    const Eigen::Matrix<double, 3, 3>& hatp
 )
 {
     Eigen::Matrix<double, 4, 6> dproj_dxi = Eigen::Matrix<double, 4, 6>::Zero();
     // a = [ω]x * p = -[p]x * ω
     // thus derivation of ω is [-p]x
-    Eigen::Matrix<double, 3, 3> hatp = skew_symmetric(point);
     dproj_dxi.block<3, 3>(0, 0) = -hatp;
     dproj_dxi.block<3, 3>(0, 3) = Eigen::Matrix3d::Identity();
     return dproj_dxi;
 }
 
-std::tuple<Eigen::Matrix<double, 6, 6>, Eigen::Matrix<double, 6, 1>> BalBundleAdjuster::compute_H_b
+std::expected<std::tuple<Eigen::Matrix<double, 6, 6>, 
+    Eigen::Matrix<double, 6, 1>>, std::error_code> BalBundleAdjuster::compute_H_b
 (
-    Eigen::Vector3d point3d,
     Eigen::Vector2d point2d,  
     Eigen::Vector2d projected_2d,
     Eigen::Matrix3d R_ini,
     Eigen::Vector3d t_ini,
-    Eigen::Matrix<double, 2, 4> jacobian
+    Eigen::Matrix<double, 2, 4> jacobian,
+    Eigen::Matrix<double, 4, 6> dproj_dxi
 )
 {
     Eigen::Matrix<double, 6, 6> H = Eigen::Matrix<double, 6, 6>::Zero();
     Eigen::Matrix<double, 6, 1> b = Eigen::Matrix<double, 6, 1>::Zero();    
-    Eigen::Matrix<double, 4, 6> dproj_dxi = get_dproj_dxi(point3d);
     Eigen::Matrix<double, 2, 6> jacobian_full = jacobian * dproj_dxi;
 
     Eigen::Vector2d e = point2d - projected_2d;
