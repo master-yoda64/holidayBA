@@ -241,6 +241,11 @@ std::expected<Eigen::Matrix<double, 3, 3>, std::error_code> BalBundleAdjuster::s
     const Eigen::Vector3d& v
 )
 {
+    if (v.size() != 3) 
+    {
+        std::cerr << "Input vector must be 3-dimensional." << std::endl;
+        return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+    }
     Eigen::Matrix<double, 3, 3> skew;
     skew << 0, -v(2), v(1),
             v(2), 0, -v(0),
@@ -252,6 +257,11 @@ std::expected<Eigen::Matrix<double, 4, 6>, std::error_code> BalBundleAdjuster::g
     const Eigen::Matrix<double, 3, 3>& hatp
 )
 {
+    if (hatp.rows() != 3 || hatp.cols() != 3) 
+    {
+        std::cerr << "Input matrix must be 3x3." << std::endl;
+        return std::unexpected(std::make_error_code(std::errc::invalid_argument));
+    }
     Eigen::Matrix<double, 4, 6> dproj_dxi = Eigen::Matrix<double, 4, 6>::Zero();
     // a = [ω]x * p = -[p]x * ω
     // thus derivation of ω is [-p]x
