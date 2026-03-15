@@ -3,6 +3,7 @@
 
 #include <sophus/so3.hpp>
 #include <ba/bal_bundle_adjuster.hpp>
+#include<Eigen/Eigenvalues>
 
 std::vector<OptResult> BalBundleAdjuster::optimize() 
 {
@@ -95,6 +96,21 @@ OptResult BalBundleAdjuster::optimize_camera(
 
         // double lambda = 1e-6;
         // H_sum.diagonal().array() += lambda;
+
+        // 正定値性をチェック（固有値を計算）
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 6, 6>> eigen_solver(H);
+        Eigen::VectorXd eigenvalues = eigen_solver.eigenvalues();
+        
+        double min_eigenvalue = eigenvalues.minCoeff();
+        std::cout << "Iteration " << it << ": Min eigenvalue = " << min_eigenvalue << std::endl;
+        
+        if (min_eigenvalue <= 0) {
+            std::cerr << "Warning: H is not positive definite (min eigenvalue = " 
+                      << min_eigenvalue << ")" << std::endl;
+            std::cerr << "All eigenvalues: " << eigenvalues.transpose() << std::endl;
+        } else {
+            std::cout << "H is positive definite (all eigenvalues > 0)" << std::endl;
+        }
 
         Eigen::SparseMatrix<double> H_sparse = H.sparseView();
         Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower | Eigen::Upper> cg;
